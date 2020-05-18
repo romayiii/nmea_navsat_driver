@@ -55,25 +55,30 @@ def main():
     serial_baud = rospy.get_param('~baud', 4800)
     frame_id = RosNMEADriver.get_frame_id()
 
-    try:
-        GPS = serial.Serial(port=serial_port, baudrate=serial_baud, timeout=2)
+    gps_port_opened = False
 
+    while not gps_port_opened:
         try:
-            driver = RosNMEADriver()
-            while not rospy.is_shutdown():
-                data = GPS.readline().strip()
-                try:
-                    driver.add_sentence(data, frame_id)
-                except ValueError as e:
-                    rospy.logwarn(
-                        "Value error, likely due to missing fields in the NMEA message. "
-                        "Error was: %s. Please report this issue at "
-                        "github.com/ros-drivers/nmea_navsat_driver, including a bag file with the NMEA "
-                        "sentences that caused it." %
-                        e)
+            GPS = serial.Serial(port=serial_port, baudrate=serial_baud, timeout=2)
+            gps_port_opened = True
 
-        except (rospy.ROSInterruptException, serial.serialutil.SerialException):
-            GPS.close()  # Close GPS serial port
-    except serial.SerialException as ex:
-        rospy.logfatal(
-            "Could not open serial port: I/O error({0}): {1}".format(ex.errno, ex.strerror))
+            try:
+                driver = RosNMEADriver()
+                while not rospy.is_shutdown():
+                    data = GPS.readline().strip()
+                    try:
+                        driver.add_sentence(data, frame_id)
+                    except ValueError as e:
+                        rospy.logwarn(
+                            "Value error, likely due to missing fields in the NMEA message. "
+                            "Error was: %s. Please report this issue at "
+                            "github.com/ros-drivers/nmea_navsat_driver, including a bag file with the NMEA "
+                            "sentences that caused it." %
+                            e)
+
+            except (rospy.ROSInterruptException, serial.serialutil.SerialException):
+                GPS.close()  # Close GPS serial port
+        except serial.SerialException as ex:
+            rospy.logfatal(
+                "Could not open serial port: I/O error({0}): {1} Trying again in 10 secs".format(ex.errno, ex.strerror))
+            rospy.sleep(10.)
